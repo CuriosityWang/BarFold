@@ -31,7 +31,12 @@ ditto -c -k --sequesterRsrc --keepParent "$app_path" "$zip_path"
 dmg_root="$release_dir/dmg-root"
 mkdir -p "$dmg_root"
 cp -R "$app_path" "$dmg_root/BarFold.app"
+cp Resources/AppIcon.icns "$dmg_root/.VolumeIcon.icns"
 ln -s /Applications "$dmg_root/Applications"
+if xcrun -f SetFile >/dev/null 2>&1; then
+  xcrun SetFile -a V "$dmg_root/.VolumeIcon.icns"
+  xcrun SetFile -a C "$dmg_root"
+fi
 
 hdiutil create -volname "BarFold" \
   -srcfolder "$dmg_root" \

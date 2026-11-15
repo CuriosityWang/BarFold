@@ -23,6 +23,8 @@ for line in subprocess.check_output(['ps', '-axo', 'pid=,comm='], text=True).spl
         else: raise SystemExit('应用尚未退出，请退出后重新安装。')
 subprocess.run(['ditto', str(root/'dist/BarFold.app'), str(target)], check=True)
 subprocess.run(['codesign', '--verify', '--strict', str(target)], check=True)
+os.utime(target, None)
+subprocess.run(['/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister', '-f', str(target)], check=True)
 print(target)
 PY
 open /Applications/BarFold.app

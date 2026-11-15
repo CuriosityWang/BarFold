@@ -99,7 +99,12 @@ struct SettingsView: View {
                 LazyVStack(spacing: 0) {
                     if filtered.isEmpty {
                         VStack(spacing: 10) {
-                            Image(systemName: "menubar.rectangle").font(.largeTitle).foregroundStyle(.secondary)
+                            Image(nsImage: NSImage(named: "AppIcon") ?? NSApplication.shared.applicationIconImage)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 44, height: 44)
+                                .opacity(0.75)
+                                .accessibilityHidden(true)
                             Text(model.scanning ? "正在读取图标" : (search.isEmpty ? "暂无可配置的应用图标" : "未找到相关应用"))
                             if !model.scanning && search.isEmpty { Text("确认权限后，点击下方“刷新图标”").foregroundStyle(.secondary) }
                         }.frame(maxWidth: .infinity).padding(50)

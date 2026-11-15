@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var window: NSWindow?
     private var subscriptions: Set<AnyCancellable> = []
+    private var displayedSymbol: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard NSRunningApplication.runningApplications(withBundleIdentifier: model.ownID).count <= 1 else {
@@ -26,10 +27,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.autosaveName = "BarFoldToggle"
         statusItem = item
-        let statusIcon = NSImage(named: "AppIcon")?.copy() as? NSImage
-        statusIcon?.size = NSSize(width: 20, height: 20)
-        statusIcon?.isTemplate = false
-        item.button?.image = statusIcon
         item.button?.target = self
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -52,7 +49,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func updateButton() {
         let action = model.paused ? "恢复管理" : (model.expanded ? "收起图标" : "展开图标")
-        statusItem?.button?.alphaValue = model.paused ? 0.5 : 1
+        let symbol = model.paused ? "pause.circle" : (model.expanded ? "chevron.right" : "chevron.left")
+        if symbol != displayedSymbol {
+            let image = NSImage(systemSymbolName: symbol, accessibilityDescription: action)
+            image?.isTemplate = true
+            statusItem?.button?.image = image
+            displayedSymbol = symbol
+        }
         statusItem?.button?.toolTip = "菜单栏收纳 · \(model.stateText)\n右键打开配置"
         statusItem?.button?.setAccessibilityLabel("菜单栏收纳，\(action)")
     }

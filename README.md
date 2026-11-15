@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Resources/AppIcon.png" width="104" height="104" alt="BarFold Icon">
+</p>
+
 # 菜单栏收纳（BarFold）
 
 原生 macOS 菜单栏工具，支持常驻显示、收起、永久隐藏三种状态。用 SwiftUI 提供配置面板，用 AppKit 提供菜单栏入口；配置保存到本机 UserDefaults。
@@ -21,13 +25,13 @@
 1. 打开 `/Applications/BarFold.app`。已有配置且权限就绪时，应用在菜单栏静默启动；首次配置或缺少权限时会自动打开面板。
 2. 在面板中点击“打开权限设置”，允许 BarFold 的辅助功能权限，然后回到应用点击“刷新图标”。图标管理需要辅助功能权限。
 3. 为应用选择显示方式。新识别的应用默认常驻显示；同一应用的多个图标一起显隐。嵌套在主应用内的辅助进程会自动附加主应用名称（如 `Feishu (Lark Helper)`）。
-4. 左键点击菜单栏的 B 版产品图标（或启用全局快捷键 `⌥⌘B`），在系统菜单栏中向左展开或收起。右键打开配置、切换登录时启动、暂停管理或退出。
+4. 左键点击菜单栏箭头（或启用全局快捷键 `⌥⌘B`），在系统菜单栏中向左展开或收起。右键打开配置、切换登录时启动、暂停管理或退出。
 5. 可在面板顶部配置登录时启动、全局快捷键 `⌥⌘B` 以及展开后自动收起延迟（不自动收起 / 10 秒 / 15 秒 / 30 秒；面板打开或鼠标停留在菜单栏区域时不会打断收起）。
 6. 若隐藏期间新启动了被系统连带隐藏的应用，可点击底部“发现隐藏图标”短暂恢复全部图标完成扫描。未运行应用的保留规则可一键移除。
 
-菜单栏从左到右按“收起图标、BarFold 图标、常驻图标、系统图标”排列。BarFold 图标位于常驻区左侧。展开时，收起图标在 BarFold 图标左侧显示，BarFold 图标和右侧常驻图标保持原位。
+菜单栏从左到右按“收起图标、BarFold 箭头、常驻图标、系统图标”排列。BarFold 箭头位于常驻区左侧。展开时，收起图标在 BarFold 箭头左侧显示，BarFold 箭头和右侧常驻图标保持原位。
 
-改变应用分组时，BarFold 会通过系统的 ⌘ 拖动操作调整位置。选择“收起”会将图标移到 BarFold 图标左侧，选择“常驻显示”会将图标移到右侧。展开时也会检查已有配置的位置。位置调整会等待鼠标和修饰键松开，用户继续操作鼠标或键盘时会中断调整。未完成的调整会在面板中提示，可点击“恢复管理”重试。
+改变应用分组时，BarFold 会通过系统的 ⌘ 拖动操作调整位置。选择“收起”会将图标移到 BarFold 箭头左侧，选择“常驻显示”会将图标移到右侧。展开时也会检查已有配置的位置。位置调整会等待鼠标和修饰键松开，用户继续操作鼠标或键盘时会中断调整。未完成的调整会在面板中提示，可点击“恢复管理”重试。
 
 菜单栏空间不足时，展开操作会自动打开 macOS 的双箭头溢出区，收起时同步关闭。程序通过屏幕坐标命中实际按钮并读取开合状态，避免后台菜单栏副本导致重复开关。在本机刘海屏上，已验证一次展开后飞书、QQ、PasteEasy、Snipaste 同时可见，溢出项目显示在刘海左侧。
 
@@ -77,11 +81,15 @@ zsh scripts/native-smoke.sh
 - `Sources/BarFoldCore/Preferences.swift`：自动收起延迟、全局快捷键配置与策略。
 - `Sources/BarFoldCore/AppIdentity.swift`：嵌套辅助进程宿主应用识别与启动弹窗策略。
 - `Sources/BarFoldCore/InventoryCatalog.swift`：后台进程过滤与菜单栏列表聚合。
-- `Sources/BarFold/Inventory.swift`：从系统菜单栏辅助功能树识别应用。
+- `Sources/BarFoldCore/MenuBarOrder.swift`：菜单栏锚点左右分区顺序计算。
+- `Sources/BarFoldCore/MenuBarOverflow.swift`：macOS 双箭头溢出控件合并与状态判定。
+- `Sources/BarFold/Inventory.swift`：从系统菜单栏辅助功能树识别应用与屏幕布局。
+- `Sources/BarFold/MenuBarMover.swift`：空闲检测与可中断的 ⌘ 拖拽排序。
 - `Sources/BarFold/HotKey.swift`：全局快捷键 `⌥⌘B` 注册与释放。
 - `Sources/MenuBarBridge/MenuBarBridge.m`：私有接口检测、异步更新、超时与恢复。
 - `Sources/BarFold/AppModel.swift`：连接配置、应用启动退出、显示器与空间变化、自动收起与登录启动。
 - `Sources/BarFold/SettingsView.swift`：配置面板与 32×32 图标缩略图缓存。
+- `scripts/package-release.sh`：生成公开分发的 `.dmg`、`.zip` 与 `SHA256SUMS.txt`。
 
 界面点击、权限授权、睡眠唤醒和显示器热插拔需要人工验收；构建通过和原生测试通过不代表这些场景已经验证。
 
