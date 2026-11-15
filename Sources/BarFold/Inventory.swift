@@ -4,7 +4,7 @@ import BarFoldCore
 
 typealias MenuApp = MenuAppRow
 
-enum InventoryError: Error { case permission, unavailable, unreadable }
+enum InventoryError: Error { case permission, unavailable, unreadable, actionFailed(Int32) }
 
 enum AppBundleMetadata {
     static func localizedName(for bundleURL: URL) -> String {
@@ -149,6 +149,17 @@ actor MenuBarInventory {
     func overflowControls() throws -> [MenuBarOverflowControl] {
         let (_, windows) = try windows()
         return visibleOverflowElements(in: windows).compactMap { overflowControl(for: $0) }
+    }
+
+    func setOverflowExpanded(_ expanded: Bool, at frame: CGRect) throws {
+        let (_, windows) = try windows()
+        for element in visibleOverflowElements(in: windows) {
+            guard let control = overflowControl(for: element), control.frame == frame else { continue }
+            guard control.isExpanded != expanded else { return }
+            let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
+            guard result == .success else { throw InventoryError.actionFailed(result.rawValue) }
+            return
+        }
     }
 
     private func visibleOverflowElements(in windows: [AXUIElement]) -> [AXUIElement] {

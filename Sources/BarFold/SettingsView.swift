@@ -24,7 +24,7 @@ struct SettingsView: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("菜单栏收纳").font(.title2.bold())
-                    Text("选择哪些应用常驻显示、收起或永久隐藏").foregroundStyle(.secondary)
+                    Text("拖动应用到分组，或点击应用更改显示方式").foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button(model.expanded ? "收起图标" : "展开图标", action: model.toggle)
@@ -56,13 +56,6 @@ struct SettingsView: View {
                     get: { model.launchAtLogin },
                     set: { model.setLaunchAtLogin($0) }
                 )).disabled(!model.installedCorrectly)
-
-                Divider().frame(height: 14)
-
-                Toggle("全局快捷键 ⌥⌘B", isOn: Binding(
-                    get: { model.preferences.hotkeyEnabled },
-                    set: { model.setHotkeyEnabled($0) }
-                )).disabled(!model.canConfigure)
 
                 Spacer()
 
@@ -96,51 +89,20 @@ struct SettingsView: View {
             }.padding(10).background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8)).padding(.horizontal, 24).padding(.bottom, 12)
 
             ScrollView {
-                LazyVStack(spacing: 0) {
-                    if filtered.isEmpty {
-                        VStack(spacing: 10) {
-                            Image(nsImage: NSImage(named: "AppIcon") ?? NSApplication.shared.applicationIconImage)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 44, height: 44)
-                                .opacity(0.75)
-                                .accessibilityHidden(true)
-                            Text(model.scanning ? "正在读取图标" : (search.isEmpty ? "暂无可配置的应用图标" : "未找到相关应用"))
-                            if !model.scanning && search.isEmpty { Text("确认权限后，点击下方“刷新图标”").foregroundStyle(.secondary) }
-                        }.frame(maxWidth: .infinity).padding(50)
+                VStack(spacing: 8) {
+                    ForEach(Placement.allCases, id: \.self) { placement in
+                        AppPlacementGroup(
+                            model: model,
+                            placement: placement,
+                            items: filtered.filter { model.placement(for: $0.id) == placement },
+                            searching: !search.isEmpty
+                        )
                     }
-                    ForEach(filtered) { item in
-                        HStack(spacing: 12) {
-                            AppIcon(bundleID: item.id).frame(width: 32, height: 32)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(item.name).fontWeight(.medium)
-                                if !item.running { Text("未运行 · 保留配置").font(.caption).foregroundStyle(.secondary) }
-                                else if item.count > 1 { Text("\(item.count) 个图标一起显隐").font(.caption).foregroundStyle(.secondary) }
-                            }
-                            Spacer(minLength: 12)
-                            if !item.running {
-                                Button {
-                                    model.removeOfflineRule(for: item.id)
-                                } label: {
-                                    Image(systemName: "trash").foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.borderless)
-                                .help("移除此未运行应用的保留配置")
-                            }
-                            Picker("\(item.name) 的显示方式", selection: Binding(
-                                get: { model.placement(for: item.id) },
-                                set: { model.setPlacement($0, for: item) }
-                            )) {
-                                ForEach(Placement.allCases, id: \.self) { Text($0.title).tag($0) }
-                            }.labelsHidden().pickerStyle(.segmented).frame(width: 260).disabled(!model.canConfigure)
-                        }.padding(.vertical, 12).padding(.horizontal, 16)
-                        Divider().padding(.leading, 60)
-                    }
-                }.background(.background, in: RoundedRectangle(cornerRadius: 10)).padding(.horizontal, 24)
+                }.padding(.horizontal, 24)
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("收起：展开时显示。永久隐藏：展开时仍隐藏，可随时在这里恢复。")
+                Text("隐藏组中的应用在展开时仍隐藏，可随时拖回其他分组。")
                 Text("隐藏期间，“专注模式”等部分系统状态图标也可能消失。Wi‑Fi、音量、电池、时钟和控制中心会保留。")
             }.font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 24).padding(.vertical, 12)
             Divider()
@@ -167,6 +129,130 @@ struct SettingsView: View {
             action()
         }.font(.callout).padding(12).background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             .padding(.horizontal, 24).padding(.bottom, 12)
+    }
+}
+
+private extension Placement {
+    var groupTitle: String {
+        switch self {
+        case .visible: "常驻"
+        case .collapsed: "收起"
+        case .hidden: "隐藏"
+        }
+    }
+
+    var groupDescription: String {
+        switch self {
+        case .visible: "始终显示"
+        case .collapsed: "展开时显示"
+        case .hidden: "展开时仍隐藏"
+        }
+    }
+}
+
+private struct AppPlacementGroup: View {
+    @ObservedObject var model: AppModel
+    let placement: Placement
+    let items: [MenuApp]
+    let searching: Bool
+    @State private var isTargeted = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 10) {
+                Text(placement.groupTitle).font(.headline)
+                Text(placement.groupDescription).font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Text("\(items.count)").foregroundStyle(.secondary)
+            }.padding(.horizontal, 12).padding(.top, 8)
+            ScrollView(.horizontal) {
+                HStack(spacing: 4) {
+                    ForEach(items) { item in
+                        PlacementAppCard(model: model, item: item)
+                            .frame(width: 80)
+                    }
+                    if items.isEmpty {
+                        Text(searching ? "无匹配应用" : "拖入应用")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 80, height: 60)
+                    }
+                }.padding(.horizontal, 6).padding(.bottom, 6)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(isTargeted ? Color.accentColor : Color(nsColor: .separatorColor).opacity(0.4), lineWidth: isTargeted ? 2 : 1)
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(placement.groupTitle)分组")
+        .dropDestination(for: String.self) { ids, _ in
+            guard model.canConfigure, ids.count == 1, let id = ids.first,
+                  let item = model.items.first(where: { $0.id == id }) else { return false }
+            model.setPlacement(placement, for: item)
+            return true
+        } isTargeted: { isTargeted = $0 && model.canConfigure }
+    }
+}
+
+private struct PlacementAppCard: View {
+    @ObservedObject var model: AppModel
+    let item: MenuApp
+    @State private var showingActions = false
+
+    var body: some View {
+        VStack(spacing: 4) {
+            AppIcon(bundleID: item.id).frame(width: 24, height: 24)
+            VStack(spacing: 2) {
+                Text(item.name).font(.caption).fontWeight(.medium).lineLimit(2)
+                    .multilineTextAlignment(.center)
+                if !item.running {
+                    Text("未运行").font(.caption2).foregroundStyle(.secondary)
+                } else if item.count > 1 {
+                    Text("\(item.count) 个图标").font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(4)
+        .frame(maxWidth: .infinity, minHeight: 60, alignment: .top)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+        .contentShape(Rectangle())
+        .onTapGesture { if model.canConfigure { showingActions = true } }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { if model.canConfigure { showingActions = true } }
+        .disabled(!model.canConfigure)
+        .help("\(item.name)\n拖动到目标分组，或点击更改显示方式")
+        .accessibilityLabel("\(item.name)，\(model.placement(for: item.id).groupTitle)")
+        .draggable(item.id)
+        .popover(isPresented: $showingActions) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(item.name).font(.headline).padding(.bottom, 4)
+                ForEach(Placement.allCases, id: \.self) { placement in
+                    Button {
+                        showingActions = false
+                        model.setPlacement(placement, for: item)
+                    } label: {
+                        HStack {
+                            Text("移到\(placement.groupTitle)")
+                            Spacer()
+                            if model.placement(for: item.id) == placement {
+                                Image(systemName: "checkmark").foregroundStyle(.tint)
+                            }
+                        }.frame(width: 150).padding(.vertical, 4)
+                    }.buttonStyle(.plain)
+                }
+                if !item.running {
+                    Divider()
+                    Button("移除保留配置", role: .destructive) {
+                        showingActions = false
+                        model.removeOfflineRule(for: item.id)
+                    }.buttonStyle(.plain).padding(.top, 4)
+                }
+            }.padding(16)
+        }
     }
 }
 

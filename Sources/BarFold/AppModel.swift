@@ -27,7 +27,6 @@ final class AppModel: ObservableObject {
     private let inventory = MenuBarInventory()
     private let mover = MenuBarMover()
     private let session = BFMenuBarSession()
-    private var hotKey: GlobalHotKey?
     private var known: [String: DiscoveredApp] = [:]
     private var workspaceObservers: [NSObjectProtocol] = []
     private var appObservers: [NSObjectProtocol] = []
@@ -70,9 +69,6 @@ final class AppModel: ObservableObject {
 
     func start() {
         refreshLaunchAtLoginStatus()
-        let hk = GlobalHotKey { [weak self] in self?.toggle() }
-        hk.setEnabled(preferences.hotkeyEnabled)
-        hotKey = hk
         lastEligibleRunning = currentEligibleRunning()
 
         let workspace = NSWorkspace.shared.notificationCenter
@@ -124,7 +120,7 @@ final class AppModel: ObservableObject {
     func placement(for id: String) -> Placement { rules[id]?.placement ?? .visible }
 
     func setPlacement(_ placement: Placement, for item: MenuApp) {
-        guard canConfigure else { return }
+        guard canConfigure, self.placement(for: item.id) != placement else { return }
         var next = rules
         if placement == .visible { next.removeValue(forKey: item.id) }
         else { next[item.id] = SavedRule(name: item.name, placement: placement) }
@@ -151,13 +147,6 @@ final class AppModel: ObservableObject {
         preferences.autoCollapse = delay
         preferencesStore.save(preferences)
         rescheduleAutoCollapse()
-    }
-
-    func setHotkeyEnabled(_ enabled: Bool) {
-        guard preferences.hotkeyEnabled != enabled else { return }
-        preferences.hotkeyEnabled = enabled
-        preferencesStore.save(preferences)
-        hotKey?.setEnabled(enabled)
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
@@ -400,7 +389,7 @@ final class AppModel: ObservableObject {
                     self.orderingFailed = !orderingSucceeded
                     self.overflowFailed = !overflowSucceeded
                     if !overflowSucceeded {
-                        self.error = "系统溢出区调整未完成。请松开鼠标和修饰键后，点击“恢复管理”重试。"
+                        self.error = "系统溢出区调整未完成，请点击“恢复管理”重试。"
                     } else if !orderingSucceeded {
                         self.error = "图标位置调整未完成。请松开鼠标和修饰键后，点击“恢复管理”重试。"
                     } else if hadLayoutError {
@@ -418,13 +407,10 @@ final class AppModel: ObservableObject {
             let limit = controls.count
             for _ in 0..<limit {
                 guard controls.contains(where: { $0.isExpanded != expanded }) else { return true }
-                try await mover.waitForIdle { !self.stopped && !self.paused && !self.discovering && self.revision == version }
                 controls = try await inventory.overflowControls()
                 guard !stopped, !paused, !discovering, revision == version else { return false }
                 guard let control = controls.first(where: { $0.isExpanded != expanded }) else { return true }
-                try await mover.click(at: CGPoint(x: control.frame.midX, y: control.frame.midY)) {
-                    !self.stopped && !self.paused && !self.discovering && self.revision == version
-                }
+                try await inventory.setOverflowExpanded(expanded, at: control.frame)
                 // Re-read the identifier, since clicking an already open control would close it.
                 for _ in 0..<4 {
                     try await Task.sleep(for: .milliseconds(60))
@@ -492,8 +478,6 @@ final class AppModel: ObservableObject {
         refreshDebounceTask = nil
         autoCollapseTask?.cancel()
         autoCollapseTask = nil
-        hotKey?.unregister()
-        hotKey = nil
         runningObservation?.invalidate()
         runningObservation = nil
         session.restore()

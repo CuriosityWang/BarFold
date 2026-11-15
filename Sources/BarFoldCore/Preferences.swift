@@ -22,11 +22,9 @@ public enum AutoCollapseDelay: Int, Codable, CaseIterable, Sendable {
 
 public struct Preferences: Codable, Equatable, Sendable {
     public var autoCollapse: AutoCollapseDelay
-    public var hotkeyEnabled: Bool
 
-    public init(autoCollapse: AutoCollapseDelay = .off, hotkeyEnabled: Bool = false) {
+    public init(autoCollapse: AutoCollapseDelay = .off) {
         self.autoCollapse = autoCollapse
-        self.hotkeyEnabled = hotkeyEnabled
     }
 }
 

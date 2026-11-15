@@ -40,15 +40,7 @@ final class MenuBarMover {
     }
 
     func move(_ move: MenuBarMove, isCurrent: () -> Bool) async throws {
-        try await performInput(from: CGPoint(x: move.item.frame.midX, y: move.item.frame.midY),
-                               to: move.destination, commandDrag: true, isCurrent: isCurrent)
-    }
-
-    func click(at point: CGPoint, isCurrent: () -> Bool) async throws {
-        try await performInput(from: point, to: point, commandDrag: false, isCurrent: isCurrent)
-    }
-
-    private func performInput(from start: CGPoint, to destination: CGPoint, commandDrag: Bool, isCurrent: () -> Bool) async throws {
+        let start = CGPoint(x: move.item.frame.midX, y: move.item.frame.midY)
         guard let source = CGEventSource(stateID: .privateState), let original = CGEvent(source: nil)?.location else {
             throw MenuBarMoveError.unavailable
         }
@@ -77,7 +69,7 @@ final class MenuBarMover {
             guard let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: point, mouseButton: .left) else {
                 throw MenuBarMoveError.unavailable
             }
-            event.flags = commandDrag && type != .leftMouseUp ? .maskCommand : []
+            event.flags = type != .leftMouseUp ? .maskCommand : []
             event.post(tap: .cghidEventTap)
         }
         var finished = false
@@ -96,18 +88,14 @@ final class MenuBarMover {
         guard isCurrent() else { throw CancellationError() }
         try post(.leftMouseDown, at: point)
         pressed = true
-        if commandDrag {
-            try await Task.sleep(for: .milliseconds(100))
-            for step in 1...8 {
-                guard activity.uninterrupted else { throw MenuBarMoveError.interrupted }
-                guard isCurrent() else { throw CancellationError() }
-                let progress = CGFloat(step) / 8
-                point = CGPoint(x: start.x + (destination.x - start.x) * progress, y: start.y)
-                try post(.leftMouseDragged, at: point)
-                try await Task.sleep(for: .milliseconds(20))
-            }
-        } else {
-            try await Task.sleep(for: .milliseconds(40))
+        try await Task.sleep(for: .milliseconds(100))
+        for step in 1...8 {
+            guard activity.uninterrupted else { throw MenuBarMoveError.interrupted }
+            guard isCurrent() else { throw CancellationError() }
+            let progress = CGFloat(step) / 8
+            point = CGPoint(x: start.x + (move.destination.x - start.x) * progress, y: start.y)
+            try post(.leftMouseDragged, at: point)
+            try await Task.sleep(for: .milliseconds(20))
         }
         guard isCurrent(), activity.uninterrupted else { throw CancellationError() }
         try post(.leftMouseUp, at: point)
