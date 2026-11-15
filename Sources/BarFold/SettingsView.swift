@@ -5,6 +5,7 @@ import BarFoldCore
 struct SettingsView: View {
     @ObservedObject var model: AppModel
     @State private var search = ""
+    @State private var showingOrderHelp = false
 
     private var filtered: [MenuApp] {
         model.items.filter {
@@ -27,8 +28,17 @@ struct SettingsView: View {
                     Text("拖动应用到分组，或点击应用更改显示方式").foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button(model.expanded ? "收起图标" : "展开图标", action: model.toggle)
-                    .disabled(!model.canConfigure || model.paused)
+                VStack(alignment: .trailing, spacing: 7) {
+                    Button(model.expanded ? "收起图标" : "展开图标", action: model.toggle)
+                        .disabled(!model.canConfigure || model.paused)
+                    Button("如何调整顺序") { showingOrderHelp = true }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
+                        .font(.callout)
+                        .popover(isPresented: $showingOrderHelp, arrowEdge: .top) {
+                            MenuBarOrderHelp()
+                        }
+                }
             }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 14)
 
             if !model.installedCorrectly {
