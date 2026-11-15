@@ -25,7 +25,6 @@ final class AppModel: ObservableObject {
     private let store = RuleStore()
     private let preferencesStore = PreferencesStore()
     private let inventory = MenuBarInventory()
-    private let mover = MenuBarMover()
     private let session = BFMenuBarSession()
     private var known: [String: DiscoveredApp] = [:]
     private var workspaceObservers: [NSObjectProtocol] = []
@@ -38,7 +37,6 @@ final class AppModel: ObservableObject {
     private var lastEligibleRunning: Set<String> = []
     private var resolvedNames: [String: String] = [:]
     private var settingsWindowOpen = false
-    private var orderingFailed = false
     private var overflowFailed = false
     private var discovering = false
     private var storageFailed = false
@@ -62,7 +60,6 @@ final class AppModel: ObservableObject {
         if !hasPermission { return "需要辅助功能权限" }
         if paused { return "已暂停，图标已恢复" }
         if applying { return "正在更新菜单栏" }
-        if orderingFailed { return "图标位置待调整" }
         if overflowFailed { return "系统溢出区待调整" }
         return expanded ? "已展开收起的图标" : "已收起图标"
     }
@@ -176,7 +173,6 @@ final class AppModel: ObservableObject {
     func pause() {
         paused = true
         revision += 1
-        mover.cancel()
         autoCollapseTask?.cancel()
         autoCollapseTask = nil
         session.restore()
@@ -244,7 +240,6 @@ final class AppModel: ObservableObject {
         guard canConfigure, !discovering else { return }
         discovering = true
         revision += 1
-        mover.cancel()
         await worker?.value
         defer {
             discovering = false
@@ -287,7 +282,7 @@ final class AppModel: ObservableObject {
                 resolvedNames[item.id] = item.name
             }
             rebuildItems(discovered: discovered)
-            if !paused && !orderingFailed && !overflowFailed { error = nil }
+            if !paused && !overflowFailed { error = nil }
             scheduleApply()
         } catch {
             guard !stopped else { return }
@@ -322,7 +317,6 @@ final class AppModel: ObservableObject {
 
     private func scheduleApply() {
         revision += 1
-        mover.cancel()
         if !stopped && canConfigure && !paused && !discovering {
             let running = currentEligibleRunning()
             let immediatePlan = VisibilityPlan(rules: rules, expanded: expanded, running: running, ownID: ownID)
@@ -346,10 +340,6 @@ final class AppModel: ObservableObject {
                 if !self.expanded {
                     overflowSucceeded = await self.synchronizeOverflow(expanded: false, version: version)
                 }
-                if self.stopped || self.paused { break }
-                if self.revision != version { continue }
-                // Move currently visible items before hiding them so the next reveal uses the correct side.
-                var orderingSucceeded = await self.reconcileOrder(version: version)
                 if self.stopped || self.paused { break }
                 if self.revision != version { continue }
                 let running = self.currentEligibleRunning()
@@ -378,20 +368,12 @@ final class AppModel: ObservableObject {
                     if self.stopped || self.paused { break }
                     if self.revision != version { continue }
                 }
-                if revealing || self.expanded {
-                    // Newly revealed items were absent from the previous accessibility layout.
-                    let revealedOrderSucceeded = await self.reconcileOrder(version: version)
-                    orderingSucceeded = orderingSucceeded && revealedOrderSucceeded
-                }
                 if self.stopped || self.paused { break }
                 if self.revision == version {
-                    let hadLayoutError = self.orderingFailed || self.overflowFailed
-                    self.orderingFailed = !orderingSucceeded
+                    let hadLayoutError = self.overflowFailed
                     self.overflowFailed = !overflowSucceeded
                     if !overflowSucceeded {
                         self.error = "系统溢出区调整未完成，请点击“恢复管理”重试。"
-                    } else if !orderingSucceeded {
-                        self.error = "图标位置调整未完成。请松开鼠标和修饰键后，点击“恢复管理”重试。"
                     } else if hadLayoutError {
                         self.error = nil
                     }
@@ -418,45 +400,13 @@ final class AppModel: ObservableObject {
                     if !controls.contains(where: { $0.frame == control.frame && $0.isExpanded != expanded }) { break }
                 }
                 if controls.contains(where: { $0.frame == control.frame && $0.isExpanded != expanded }) {
-                    throw MenuBarMoveError.rejected
+                    throw InventoryError.actionFailed(AXError.cannotComplete.rawValue)
                 }
             }
             return controls.allSatisfy { $0.isExpanded == expanded }
         } catch {
             if !stopped && !paused && revision == version {
                 NSLog("BarFold overflow failed: %@", String(describing: error))
-            }
-            return false
-        }
-    }
-
-    private func reconcileOrder(version: Int) async -> Bool {
-        do {
-            var layout = try await inventory.layout(ownID: ownID)
-            let limit = layout.count
-            for _ in 0..<limit {
-                guard !stopped, !paused, !discovering, revision == version else { return false }
-                guard MenuBarOrder.nextMove(items: layout, rules: rules, ownID: ownID) != nil else {
-                    return true
-                }
-                try await mover.waitForIdle { !self.stopped && !self.paused && !self.discovering && self.revision == version }
-                layout = try await inventory.layout(ownID: ownID)
-                guard !stopped, !paused, !discovering, revision == version else { return false }
-                guard let move = MenuBarOrder.nextMove(items: layout, rules: rules, ownID: ownID) else { continue }
-                try await mover.move(move) { !self.stopped && !self.paused && self.revision == version }
-                try await Task.sleep(for: .milliseconds(180))
-                layout = try await inventory.layout(ownID: ownID)
-                if MenuBarOrder.nextMove(items: layout, rules: rules, ownID: ownID) == move {
-                    throw MenuBarMoveError.rejected
-                }
-            }
-            guard MenuBarOrder.nextMove(items: layout, rules: rules, ownID: ownID) == nil else {
-                throw MenuBarMoveError.rejected
-            }
-            return true
-        } catch {
-            if !stopped && !paused && revision == version {
-                NSLog("BarFold ordering failed: %@", String(describing: error))
             }
             return false
         }
@@ -473,7 +423,6 @@ final class AppModel: ObservableObject {
 
     func stop() {
         stopped = true
-        mover.cancel()
         refreshDebounceTask?.cancel()
         refreshDebounceTask = nil
         autoCollapseTask?.cancel()

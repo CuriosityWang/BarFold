@@ -38,9 +38,7 @@ macOS 27 内置了“允许在菜单栏显示”开关和双箭头溢出按钮�
 5. 可在面板顶部配置登录时启动以及展开后自动收起延迟（不自动收起 / 10 秒 / 15 秒 / 30 秒；面板打开或鼠标停留在菜单栏区域时不会打断收起）。
 6. 若隐藏期间新启动了被系统连带隐藏的应用，可点击底部“发现隐藏图标”短暂恢复全部图标完成扫描。未运行应用的保留规则可一键移除。
 
-菜单栏从左到右按“收起图标、BarFold 箭头、常驻图标、系统图标”排列。BarFold 箭头位于常驻区左侧。展开时，收起图标在 BarFold 箭头左侧显示，BarFold 箭头和右侧常驻图标保持原位。
-
-改变应用分组时，BarFold 会通过系统的 ⌘ 拖动操作调整位置。移入“收起”会将图标移到 BarFold 箭头左侧，移入“常驻”会将图标移到右侧。展开时也会检查已有配置的位置。位置调整会等待鼠标和修饰键松开，用户继续操作鼠标或键盘时会中断调整。未完成的调整会在面板中提示，可点击“恢复管理”重试。
+菜单栏顺序由用户在系统菜单栏中调整。先展开图标，按住 ⌘ 拖动图标到目标位置，再松开鼠标。推荐从左到右排列为“收起图标、BarFold 箭头、常驻图标、系统图标”。面板分组控制应用图标的显示方式，位置由 macOS 保存。
 
 菜单栏空间不足时，展开操作会自动打开 macOS 的双箭头溢出区，收起时同步关闭。程序通过屏幕坐标命中实际按钮并读取开合状态，通过辅助功能 API `AXUIElementPerformAction(..., kAXPressAction)` 执行开合，再核对实际状态。坐标命中用于识别当前显示的菜单栏，避免后台副本导致重复开关。在本机刘海屏上，已验证一次展开后飞书、QQ、PasteEasy、Snipaste 同时可见，溢出项目显示在刘海左侧。
 
@@ -90,10 +88,8 @@ zsh scripts/native-smoke.sh
 - `Sources/BarFoldCore/Preferences.swift`：自动收起延迟配置与策略。
 - `Sources/BarFoldCore/AppIdentity.swift`：嵌套辅助进程宿主应用识别与启动弹窗策略。
 - `Sources/BarFoldCore/InventoryCatalog.swift`：后台进程过滤与菜单栏列表聚合。
-- `Sources/BarFoldCore/MenuBarOrder.swift`：菜单栏锚点左右分区顺序计算。
 - `Sources/BarFoldCore/MenuBarOverflow.swift`：macOS 双箭头溢出控件合并与状态判定。
 - `Sources/BarFold/Inventory.swift`：从系统菜单栏辅助功能树识别应用与屏幕布局。
-- `Sources/BarFold/MenuBarMover.swift`：空闲检测与可中断的 ⌘ 拖拽排序。
 - `Sources/MenuBarBridge/MenuBarBridge.m`：私有接口检测、异步更新、超时与恢复。
 - `Sources/BarFold/AppModel.swift`：连接配置、应用启动退出、显示器与空间变化、自动收起与登录启动。
 - `Sources/BarFold/SettingsView.swift`：配置面板与 32×32 图标缩略图缓存。

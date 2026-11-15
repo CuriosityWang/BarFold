@@ -114,38 +114,6 @@ actor MenuBarInventory {
         return counts.map { DiscoveredApp(id: $0.key, name: names[$0.key] ?? $0.key, count: $0.value) }
     }
 
-    func layout(ownID: String) throws -> [MenuBarItemFrame] {
-        let (agentPID, windows) = try windows()
-        let visibleWindows = visibleOverflowElements(in: windows).compactMap { element -> AXUIElement? in
-            guard let value = attribute(element, kAXWindowAttribute), CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
-            return (value as! AXUIElement)
-        }
-        let orderedWindows = visibleWindows + windows.filter { window in
-            !visibleWindows.contains(where: { CFEqual($0, window) })
-        }
-        for window in orderedWindows {
-            var items: [MenuBarItemFrame] = []
-            for group in attribute(window, kAXChildrenAttribute) as? [AXUIElement] ?? [] {
-                guard let value = attribute(group, "AXFrame"), CFGetTypeID(value) == AXValueGetTypeID() else { continue }
-                var frame = CGRect.zero
-                guard AXValueGetValue(value as! AXValue, .cgRect, &frame), frame.width > 0, frame.height > 0 else { continue }
-                for child in attribute(group, kAXChildrenAttribute) as? [AXUIElement] ?? [] {
-                    var pid: pid_t = 0
-                    AXUIElementGetPid(child, &pid)
-                    guard pid > 0, pid != agentPID,
-                          let app = NSRunningApplication(processIdentifier: pid), let id = app.bundleIdentifier,
-                          !(app.bundleURL?.path.hasPrefix("/System/Library/CoreServices/") ?? false)
-                    else { continue }
-                    items.append(MenuBarItemFrame(bundleID: id, frame: frame))
-                    break
-                }
-            }
-            // The host exposes duplicate windows, including system-only ones.
-            if items.contains(where: { $0.bundleID == ownID }) { return items }
-        }
-        throw InventoryError.unreadable
-    }
-
     func overflowControls() throws -> [MenuBarOverflowControl] {
         let (_, windows) = try windows()
         return visibleOverflowElements(in: windows).compactMap { overflowControl(for: $0) }
