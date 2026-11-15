@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>local.barfold.app</string>
+<key>CFBundleName</key><string>BarFold</string>
+<key>CFBundleDisplayName</key><string>菜单栏收纳</string>
+<key>CFBundleExecutable</key><string>BarFold</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleVersion</key><string>3</string>
+<key>LSMinimumSystemVersion</key><string>27.0</string>
+<key>LSUIElement</key><true/>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSAccessibilityUsageDescription</key><string>读取菜单栏中的应用图标，以便配置常驻显示、收起和永久隐藏。</string>
+</dict></plist>
